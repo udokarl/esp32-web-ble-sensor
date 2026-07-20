@@ -60,7 +60,7 @@
             </div>
             <div class="sensor-card write">
                 <span class="sensor-icon">&#x270E;</span>
-                <div class="sensor-label">Write Value</div>
+                <div class="sensor-label">Write Value: <span id="writeValue">--</span></div>
                 <div class="write-control">
                     <input type="number" id="writeValueInput" placeholder="Enter integer"
                         style="width: 70%; padding: 8px;">
@@ -112,6 +112,7 @@
         const tempValueEl = document.getElementById('tempValue');
         const humValueEl = document.getElementById('humValue');
         const pressValueEl = document.getElementById('pressValue');
+        const writeValueEl = document.getElementById('writeValue');
         const tempTimestamp = document.getElementById('tempTimestamp');
         const humTimestamp = document.getElementById('humTimestamp');
         const pressTimestamp = document.getElementById('pressTimestamp');
@@ -136,6 +137,7 @@
         // Sensor state
         var currentUnit = 'C';
         var lastTempC = null;
+        var currentWriteValue = null;
         const MAX_POINTS = 60;
         var tempData = { labels: [], valuesC: [], valuesF: [] };
         var humData = { labels: [], values: [] };
@@ -325,6 +327,19 @@
             try {
                 const char = await service.getCharacteristic(uuid);
                 storeFn(char);
+
+                // Try to read the current value
+                try {
+                    const val = await char.readValue();
+                    const buffer = new DataView(val);
+                    const intValue = buffer.getInt32(0, true); // true for little-endian
+                    currentWriteValue = intValue;
+                    writeValueEl.textContent = intValue;
+                    console.log(`Read initial write value: ${intValue}`);
+                } catch (readErr) {
+                    console.warn('Could not read initial write value:', readErr);
+                }
+
                 console.log(`Got write characteristic ${uuid}`);
                 return char;
             } catch (err) {
@@ -410,6 +425,8 @@
                 view.setInt32(0, value, true); // true for little-endian
 
                 await writeIntCharFound.writeValue(buffer);
+                currentWriteValue = value;
+                writeValueEl.textContent = value;
                 statusEl.textContent = `Sent: ${value}`;
                 console.log(`Wrote integer value: ${value}`);
             } catch (err) {
